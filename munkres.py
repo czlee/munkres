@@ -298,6 +298,7 @@ __docformat__ = 'restructuredtext'
 
 import sys
 import copy
+import random
 
 # ---------------------------------------------------------------------------
 # Exports
@@ -342,7 +343,7 @@ class Munkres:
     See the module documentation for usage.
     """
 
-    def __init__(self):
+    def __init__(self, random=False):
         """Create a new instance"""
         self.C = None
         self.row_covered = []
@@ -352,6 +353,7 @@ class Munkres:
         self.Z0_c = 0
         self.marked = None
         self.path = None
+        self.random = random
 
     def make_cost_matrix(profit_matrix, inversion_function):
         """
@@ -469,6 +471,13 @@ class Munkres:
             matrix += [[val for j in range(n)]]
         return matrix
 
+    def __indices(self):
+        n = self.n
+        if self.random:
+            return random.sample(range(n), n)
+        else:
+            return range(n)
+
     def __step1(self):
         """
         For each row of the matrix, find the smallest element and
@@ -498,9 +507,8 @@ class Munkres:
         zero in its row or column, star Z. Repeat for each element in the
         matrix. Go to Step 3.
         """
-        n = self.n
-        for i in range(n):
-            for j in range(n):
+        for i in self.__indices():
+            for j in self.__indices():
                 if (self.C[i][j] == 0) and \
                         (not self.col_covered[j]) and \
                         (not self.row_covered[i]):
@@ -518,15 +526,14 @@ class Munkres:
         covered, the starred zeros describe a complete set of unique
         assignments. In this case, Go to DONE, otherwise, Go to Step 4.
         """
-        n = self.n
         count = 0
-        for i in range(n):
-            for j in range(n):
+        for i in self.__indices():
+            for j in self.__indices():
                 if self.marked[i][j] == 1 and not self.col_covered[j]:
                     self.col_covered[j] = True
                     count += 1
 
-        if count >= n:
+        if count >= self.n:
             step = 7 # done
         else:
             step = 4
@@ -547,7 +554,7 @@ class Munkres:
         col = 0
         star_col = -1
         while not done:
-            (row, col) = self.__find_a_zero(row, col)
+            (row, col) = self.__find_a_zero()
             if row < 0:
                 done = True
                 step = 6
@@ -638,16 +645,18 @@ class Munkres:
         return minval
 
 
-    def __find_a_zero(self, i0=0, j0=0):
+    def __find_a_zero(self):
         """Find the first uncovered element with value 0"""
         row = -1
         col = -1
-        i = i0
         n = self.n
         done = False
+        I = iter(self.__indices())
+        i = next(I)
 
         while not done:
-            j = j0
+            J = iter(self.__indices())
+            j = next(J)
             while True:
                 if (self.C[i][j] == 0) and \
                         (not self.row_covered[i]) and \
@@ -655,11 +664,13 @@ class Munkres:
                     row = i
                     col = j
                     done = True
-                j = (j + 1) % n
-                if j == j0:
+                try:
+                    j = next(J)
+                except StopIteration:
                     break
-            i = (i + 1) % n
-            if i == i0:
+            try:
+                i = next(I)
+            except StopIteration:
                 done = True
 
         return (row, col)
@@ -670,7 +681,7 @@ class Munkres:
         the column index, or -1 if no starred element was found.
         """
         col = -1
-        for j in range(self.n):
+        for j in self.__indices():
             if self.marked[row][j] == 1:
                 col = j
                 break
@@ -683,7 +694,7 @@ class Munkres:
         the row index, or -1 if no starred element was found.
         """
         row = -1
-        for i in range(self.n):
+        for i in self.__indices():
             if self.marked[i][col] == 1:
                 row = i
                 break
@@ -696,7 +707,7 @@ class Munkres:
         the column index, or -1 if no starred element was found.
         """
         col = -1
-        for j in range(self.n):
+        for j in self.__indices():
             if self.marked[row][j] == 2:
                 col = j
                 break
@@ -852,7 +863,7 @@ if __name__ == '__main__':
           [DISALLOWED, DISALLOWED, DISALLOWED, 4]],
          10)]
 
-    m = Munkres()
+    m = Munkres(random=True)
     for cost_matrix, expected_total in matrices:
         print_matrix(cost_matrix, msg='cost matrix')
         indexes = m.compute(cost_matrix)
